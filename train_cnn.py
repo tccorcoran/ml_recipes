@@ -1,9 +1,9 @@
 import random
 import os
 
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.layers import Conv2D, MaxPooling2D
-from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.layers import Activation, Dropout, Flatten, Dense, BatchNormalization
 from keras.preprocessing.image import ImageDataGenerator
 from keras.callbacks import ModelCheckpoint
 from keras import regularizers
@@ -45,11 +45,11 @@ def count_number_folders(dir):
     return sum(os.path.isdir(os.path.join(dir,i)) for i in os.listdir(dir))
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--img_size', type=int, nargs='?',default=[300,300])
+parser.add_argument('--img_size', type=int, nargs='?',default=[512,512])
 parser.add_argument('--train_dir',type=str,required=True)
 parser.add_argument('--test_dir',type=str,required=True)
 parser.add_argument('--model_dir',type=str,required=True)
-parser.add_argument('--batch_size',type=int,default=16)
+parser.add_argument('--batch_size',type=int,default=8)
 parser.add_argument('--epochs',type=int,default=1000)
 args = parser.parse_args()
     
@@ -69,6 +69,12 @@ img_w = args.img_size[1]
 #with tf.device("/cpu:0"):
 model = Xception(include_top=True, weights=None, input_shape=(img_h,img_w,3), pooling=None, classes=num_classes)
 
+#x = Flatten()(base_model.output)
+#predictions = Dense(num_classes, activation = 'softmax')(x)
+
+#create graph of your new model
+#model = Model(input = base_model.input, output = predictions)
+                 
 #model = multi_gpu_model(model, gpus=2)
 model.compile(loss='categorical_crossentropy',
               optimizer='Adam',
@@ -81,10 +87,7 @@ model_name = os.path.join(args.model_dir,"doc_detect.{epoch:02d}-{val_loss:.2f}.
 checkpointer = ModelCheckpoint(model_name, monitor='val_acc', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
 
 train_datagen = ImageDataGenerator(
-                rescale=1./255,
-                horizontal_flip=True,
-                vertical_flip=True,
-                rotation_range=20)
+                rescale=1./255)
 
 test_datagen = ImageDataGenerator(rescale=1./255)
 
@@ -108,4 +111,5 @@ model.fit_generator(
         epochs=args.epochs,
         validation_data=validation_generator,
         validation_steps=test_size // args.batch_size,
+        workers=7,
         callbacks=[checkpointer])    
